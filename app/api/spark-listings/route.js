@@ -24,7 +24,6 @@ export async function GET(request) {
 
   try {
     const filters = [];
-
     if (city) filters.push(`City Eq '${city}'`);
     if (state) filters.push(`StateOrProvince Eq '${state}'`);
     if (zip) filters.push(`PostalCode Eq '${zip}'`);
@@ -33,7 +32,6 @@ export async function GET(request) {
     if (pool) filters.push(`PoolPrivateYN Eq true`);
 
     const filterStr = filters.length > 0 ? filters.join(" And ") : "";
-
     const page =
       requestedPage > 0
         ? requestedPage
@@ -97,35 +95,39 @@ export async function GET(request) {
     const rawResults = data?.D?.Results ?? [];
 
     const excludeSet = new Set(
-      excludeIds
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
+      excludeIds.split(",").map((s) => s.trim()).filter(Boolean)
     );
 
     const listings = rawResults
       .map((item) => {
         const sf = item.StandardFields || item;
 
-        let photos = [];
-        if (sf.Photos && Array.isArray(sf.Photos)) photos = sf.Photos;
-        else if (item.Photos && Array.isArray(item.Photos))
-          photos = item.Photos;
+        /* ── Collect ALL photo URLs ── */
+        let rawPhotos = [];
+        if (sf.Photos && Array.isArray(sf.Photos)) rawPhotos = sf.Photos;
+        else if (item.Photos && Array.isArray(item.Photos)) rawPhotos = item.Photos;
 
-        let photoUrl = null;
-        if (photos.length > 0) {
-          const primary =
-            photos.find((p) => p.Primary === true) || photos[0];
-          photoUrl =
-            primary.Uri640 ||
-            primary.Uri300 ||
-            primary.Uri1024 ||
-            primary.UriLarge ||
-            primary.Uri800 ||
-            primary.UriThumb ||
-            primary.Uri ||
-            null;
-        }
+        const allPhotos = rawPhotos
+          .map((p) => ({
+            url:
+              p.Uri1024 ||
+              p.Uri640 ||
+              p.UriLarge ||
+              p.Uri800 ||
+              p.Uri300 ||
+              p.UriThumb ||
+              p.Uri ||
+              null,
+            caption: p.Caption || "",
+            primary: p.Primary === true,
+          }))
+          .filter((p) => p.url !== null);
+
+        /* Sort so primary is first */
+        allPhotos.sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+
+        const photoUrl = allPhotos.length > 0 ? allPhotos[0].url : null;
+        const photos = allPhotos.map((p) => p.url);
 
         const address =
           sf.UnparsedFirstLineAddress ||
@@ -140,9 +142,7 @@ export async function GET(request) {
           listingId: sf.ListingId || sf.ListingKey || "N/A",
           price: sf.ListPrice ?? sf.CurrentPrice ?? null,
           description:
-            sf.PublicRemarks ||
-            sf.SyndicationRemarks ||
-            "No description available.",
+            sf.PublicRemarks || sf.SyndicationRemarks || "No description available.",
           city: sf.City || "",
           state: sf.StateOrProvince || "",
           address,
@@ -160,6 +160,7 @@ export async function GET(request) {
             sf.PoolPrivateYN === true ||
             (sf.PoolFeatures && sf.PoolFeatures.length > 0),
           photoUrl,
+          photos,
           yearBuilt: sf.YearBuilt || null,
           sqft: sf.BuildingAreaTotal || sf.LivingArea || null,
           lotSize: sf.LotSizeArea || sf.LotSizeAcres || null,
