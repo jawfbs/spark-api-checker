@@ -37,16 +37,35 @@ export async function GET() {
       const state = sf.StateOrProvince || "";
       const zip = sf.PostalCode || "";
 
-      if (city && state) {
-        const key = `${city}|${state}|${zip}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          locations.push({ city, state, zip });
+      if (city || zip) {
+        const cityKey = `${city}|${state}`;
+        const zipKey = zip;
+
+        if (city && state && !seen.has(cityKey)) {
+          seen.add(cityKey);
+          locations.push({
+            label: `${city}, ${state}`,
+            city,
+            state,
+            zip: "",
+            type: "city",
+          });
+        }
+
+        if (zip && !seen.has(zipKey)) {
+          seen.add(zipKey);
+          locations.push({
+            label: `${zip} — ${city}, ${state}`,
+            city,
+            state,
+            zip,
+            type: "zip",
+          });
         }
       }
     });
 
-    locations.sort((a, b) => a.city.localeCompare(b.city));
+    locations.sort((a, b) => a.label.localeCompare(b.label));
 
     return Response.json(
       { success: true, count: locations.length, locations },
