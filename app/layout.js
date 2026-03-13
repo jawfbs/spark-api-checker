@@ -1,9 +1,9 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Spark API Connection Checker",
+  title: "Spark Field Explorer",
   description:
-    "Vercel template — tests live connectivity to the Spark API by FBS.",
+    "Explore all publicly available fields from the Spark API by FBS in an interactive tree.",
 };
 
 export default function RootLayout({ children }) {
