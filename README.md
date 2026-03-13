@@ -28,7 +28,3 @@ Press **Run** → get **Success** (pulling active data) or **Run Failed** (conne
 - [Spark API – Access Token Auth](http://sparkplatform.com/docs/authentication/access_token)
 - [Spark API – Developer Docs](http://sparkplatform.com/docs/api_services/read_first)
 - [Spark API – Replication](http://sparkplatform.com/docs/api_services/replication)
-
-## License
-
-MIT
