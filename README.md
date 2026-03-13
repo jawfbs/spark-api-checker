@@ -5,7 +5,9 @@ An interactive field discovery tool for the **Spark API by FBS**. Connect your o
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=...)
 
 ![Dark Mode](./public/images/dark_mode.png)
+
 ![Light Mode](./public/images/light_mode.png)
+
 ![Mellow Mode](./public/images/mellow_mode.png)
 
 🔗 **[Live Demo](https://spark-api-checker.vercel.app/)**
