@@ -4,41 +4,41 @@ import { useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 
 export default function SettingsPage() {
-  const { mode, setMode, accentColor, setAccentColor } = useTheme();
+  const {
+    mode,
+    setMode,
+    accentColor,
+    setAccentColor,
+    gamification,
+    setGamification,
+    disliked,
+    clearDisliked,
+  } = useTheme();
 
-  /* ── API Connection state ── */
   const [connStatus, setConnStatus] = useState(null);
   const [connDetail, setConnDetail] = useState("");
 
   async function handleRun() {
     setConnStatus("loading");
     setConnDetail("");
-
     try {
       const res = await fetch("/api/spark-test", { cache: "no-store" });
       const data = await res.json();
-
       if (data.connected) {
         setConnStatus("success");
         setConnDetail(
-          `Pulling live data from Spark API.\nTotal listings available: ${data.totalActiveListings}` +
+          `Pulling live data.\nTotal listings: ${data.totalActiveListings}` +
             (data.sampleRecord
-              ? `\nSample ListingId: ${
-                  data.sampleRecord.ListingId ?? data.sampleRecord.Id ?? "N/A"
-                }`
+              ? `\nSample: ${data.sampleRecord.ListingId ?? "N/A"}`
               : "")
         );
       } else {
         setConnStatus("fail");
-        setConnDetail(
-          data.error +
-            (data.detail ? "\n" + data.detail : "") +
-            (data.httpStatus ? "\nHTTP " + data.httpStatus : "")
-        );
+        setConnDetail(data.error + (data.detail ? "\n" + data.detail : ""));
       }
     } catch (err) {
       setConnStatus("fail");
-      setConnDetail("Could not reach the API route. " + err.message);
+      setConnDetail("Could not reach API. " + err.message);
     }
   }
 
@@ -51,42 +51,36 @@ export default function SettingsPage() {
     <div className="settings-wrapper">
       <h1 className="settings-title">Settings</h1>
 
-      {/* ═══ Section 1: Display Mode ═══ */}
+      {/* ═══ Display Mode ═══ */}
       <div className="settings-section">
         <h2 className="settings-section-title">Display Mode</h2>
         <div className="mode-buttons">
-          {["dark", "mellow", "light"].map((m) => (
+          {[
+            { key: "dark", icon: "🌙", label: "Dark" },
+            { key: "mellow", icon: "🌤", label: "Mellow" },
+            { key: "light", icon: "☀️", label: "Light" },
+          ].map((m) => (
             <button
-              key={m}
-              className={`mode-btn ${mode === m ? "mode-btn-active" : ""}`}
-              onClick={() => setMode(m)}
+              key={m.key}
+              className={`mode-btn ${mode === m.key ? "mode-btn-active" : ""}`}
+              onClick={() => setMode(m.key)}
             >
-              <span className="mode-btn-icon">
-                {m === "dark" && "🌙"}
-                {m === "mellow" && "🌤"}
-                {m === "light" && "☀️"}
-              </span>
-              <span className="mode-btn-label">
-                {m.charAt(0).toUpperCase() + m.slice(1)}
-              </span>
+              <span className="mode-btn-icon">{m.icon}</span>
+              <span className="mode-btn-label">{m.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* ═══ Section 2: Theme Color ═══ */}
+      {/* ═══ Theme Color ═══ */}
       <div className="settings-section">
         <h2 className="settings-section-title">Theme</h2>
-        <p className="settings-hint">
-          Choose an accent color for buttons, links, and highlights.
-        </p>
+        <p className="settings-hint">Choose an accent color.</p>
         <div className="color-picker-row">
-          <label className="color-picker-label" htmlFor="accent-picker">
-            Accent Color
-          </label>
+          <label className="color-picker-label" htmlFor="ap">Accent Color</label>
           <div className="color-picker-group">
             <input
-              id="accent-picker"
+              id="ap"
               type="color"
               value={accentColor}
               onChange={(e) => setAccentColor(e.target.value)}
@@ -97,16 +91,8 @@ export default function SettingsPage() {
         </div>
         <div className="color-presets">
           {[
-            "#0070f3",
-            "#e63946",
-            "#2a9d8f",
-            "#e9c46a",
-            "#f4a261",
-            "#9b5de5",
-            "#f15bb5",
-            "#00bbf9",
-            "#00f5d4",
-            "#6c757d",
+            "#0070f3", "#e63946", "#2a9d8f", "#e9c46a", "#f4a261",
+            "#9b5de5", "#f15bb5", "#00bbf9", "#00f5d4", "#6c757d",
           ].map((c) => (
             <button
               key={c}
@@ -114,7 +100,6 @@ export default function SettingsPage() {
               style={{ background: c }}
               onClick={() => setAccentColor(c)}
               title={c}
-              aria-label={`Set accent color to ${c}`}
             />
           ))}
         </div>
@@ -123,14 +108,48 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* ═══ Section 3: API Connection ═══ */}
+      {/* ═══ Gamification ═══ */}
+      <div className="settings-section">
+        <h2 className="settings-section-title">Gamification</h2>
+        <p className="settings-hint">
+          Earn badges and track your browsing progress.
+        </p>
+        <div className="toggle-row">
+          <span className="toggle-label">
+            {gamification ? "Enabled" : "Disabled"}
+          </span>
+          <button
+            className={`toggle-switch ${gamification ? "toggle-on" : ""}`}
+            onClick={() => setGamification(!gamification)}
+            role="switch"
+            aria-checked={gamification}
+          >
+            <span className="toggle-knob" />
+          </button>
+        </div>
+      </div>
+
+      {/* ═══ Hidden Listings ═══ */}
+      <div className="settings-section">
+        <h2 className="settings-section-title">Hidden Listings</h2>
+        <p className="settings-hint">
+          {disliked.length === 0
+            ? "No hidden listings."
+            : `${disliked.length} listing${disliked.length !== 1 ? "s" : ""} hidden from results.`}
+        </p>
+        {disliked.length > 0 && (
+          <button className="reset-btn" onClick={clearDisliked}>
+            Clear All Hidden Listings
+          </button>
+        )}
+      </div>
+
+      {/* ═══ API Connection ═══ */}
       <div className="settings-section">
         <h2 className="settings-section-title">Spark API Connection</h2>
         <p className="settings-hint">
-          Test your live connection to the Spark API by FBS (replication
-          endpoint).
+          Test your connection to the Spark API by FBS.
         </p>
-
         <button
           className="run-btn"
           onClick={handleRun}
@@ -138,21 +157,18 @@ export default function SettingsPage() {
         >
           {connStatus === "loading" ? (
             <>
-              <span className="spinner" />
-              Testing…
+              <span className="spinner" /> Testing…
             </>
           ) : (
             "Run"
           )}
         </button>
-
         {connStatus === "success" && (
           <>
             <div className="result success">✅ Success</div>
             {connDetail && <p className="detail">{connDetail}</p>}
           </>
         )}
-
         {connStatus === "fail" && (
           <>
             <div className="result fail">❌ Run Failed</div>
