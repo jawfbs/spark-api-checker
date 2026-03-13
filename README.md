@@ -2,6 +2,12 @@
 
 An interactive field discovery tool for the **Spark API by FBS**. Connect your own Spark API key and instantly explore every publicly available MLS listing field organized in a navigable, categorized tree.
 
+![Spark Field Explorer Screenshot](https://your-vercel-url.vercel.app/screenshot.png)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=...)
+
+🔗 **[Live Demo](https://spark-api-checker.vercel.app/)**
+
 Built with **Next.js 14** on **Vercel Edge Runtime**.
 
 ---
