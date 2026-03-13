@@ -10,9 +10,7 @@
 :root {
   --bg: #0a0a0a;
   --card: #141414;
-  --card-hover: #1a1a1a;
   --border: #2a2a2a;
-  --border-light: #333;
   --text: #ededed;
   --muted: #888888;
   --accent: #0070f3;
@@ -22,7 +20,6 @@
   --fail: #ff1744;
   --fail-bg: rgba(255, 23, 68, 0.1);
   --radius: 12px;
-  --radius-sm: 8px;
 }
 
 html,
@@ -40,10 +37,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 24px;
+  justify-content: center;
+  padding: 24px;
 }
 
-/* ── Top Card ── */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -69,7 +66,7 @@ body {
   line-height: 1.5;
 }
 
-/* ── Run Button ── */
+/* ── Button ── */
 .run-btn {
   appearance: none;
   border: none;
@@ -79,7 +76,7 @@ body {
   font-size: 1.05rem;
   font-weight: 600;
   padding: 14px 48px;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   transition: background 0.2s, transform 0.1s;
   letter-spacing: 0.02em;
 }
@@ -101,7 +98,7 @@ body {
 .result {
   margin-top: 28px;
   padding: 16px 24px;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
   display: inline-block;
@@ -127,7 +124,6 @@ body {
   font-size: 0.82rem;
   line-height: 1.6;
   word-break: break-word;
-  white-space: pre-line;
 }
 
 /* ── Spinner ── */
@@ -143,186 +139,10 @@ body {
   margin-right: 8px;
 }
 
-.spinner.dark {
-  border-color: rgba(255, 255, 255, 0.2);
-  border-top-color: var(--accent);
-  width: 14px;
-  height: 14px;
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-/* ───────────────────────────────────────────
-   LISTINGS SECTION
-   ─────────────────────────────────────────── */
-
-.listings-section {
-  width: 100%;
-  max-width: 1100px;
-  margin-top: 40px;
-}
-
-/* ── Navigation row ── */
-.nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  gap: 12px;
-}
-
-.nav-row:last-of-type {
-  margin-bottom: 0;
-  margin-top: 24px;
-}
-
-.nav-btn {
-  appearance: none;
-  border: 1px solid var(--border-light);
-  background: var(--card);
-  color: var(--text);
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 10px 24px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  white-space: nowrap;
-}
-
-.nav-btn:hover:not(:disabled) {
-  background: var(--card-hover);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.nav-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.nav-info {
-  color: var(--muted);
-  font-size: 0.85rem;
-  text-align: center;
-  flex: 1;
-}
-
-/* ── Listings grid ── */
-.listings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-}
-
-/* ── Individual listing card ── */
-.listing-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  transition: border-color 0.2s, transform 0.15s;
-}
-
-.listing-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-
-/* Header row */
-.listing-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.status-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(0, 112, 243, 0.15);
-  color: var(--accent);
-}
-
-.status-badge.active {
-  background: var(--success-bg);
-  color: var(--success);
-}
-
-.status-badge.closed,
-.status-badge.sold {
-  background: var(--fail-bg);
-  color: var(--fail);
-}
-
-.status-badge.pending,
-.status-badge.active-under-contract {
-  background: rgba(255, 193, 7, 0.15);
-  color: #ffc107;
-}
-
-.listing-id {
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-family: monospace;
-}
-
-/* Price */
-.listing-price {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin-bottom: 8px;
-}
-
-/* Address */
-.listing-address {
-  font-size: 0.9rem;
-  color: var(--text);
-  margin-bottom: 16px;
-  line-height: 1.5;
-}
-
-.listing-city {
-  display: block;
-  color: var(--muted);
-  font-size: 0.82rem;
-  margin-top: 2px;
-}
-
-/* Detail chips (beds, baths, sqft) */
-.listing-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.detail-chip {
-  font-size: 0.78rem;
-  padding: 5px 12px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-/* Remarks */
-.listing-remarks {
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.55;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
 }
 
 /* ── Footer ── */
@@ -339,24 +159,4 @@ body {
 
 .footer a:hover {
   text-decoration: underline;
-}
-
-/* ── Responsive ── */
-@media (max-width: 640px) {
-  .card {
-    padding: 32px 20px;
-  }
-
-  .listings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .nav-btn {
-    padding: 10px 14px;
-    font-size: 0.82rem;
-  }
-
-  .listing-price {
-    font-size: 1.3rem;
-  }
 }
