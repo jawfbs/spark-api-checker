@@ -1,15 +1,21 @@
 import "./globals.css";
+import { ThemeProvider } from "./context/ThemeContext";
+import NavBar from "./components/NavBar";
 
 export const metadata = {
-  title: "Spark API Connection Checker",
-  description:
-    "Vercel template — tests live connectivity to the Spark API by FBS.",
+  title: "Spark Listings",
+  description: "Search and browse MLS listings via the Spark API by FBS.",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" data-theme="dark">
+      <body>
+        <ThemeProvider>
+          <NavBar />
+          <main className="main-content">{children}</main>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
