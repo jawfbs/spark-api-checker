@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTheme } from "./context/ThemeContext";
+import ListingOverlay from "./components/ListingOverlay";
+import Gamification from "./components/Gamification";
 
 export default function Home() {
-  /* ── Location autocomplete ── */
+  const { disliked, isDisliked } = useTheme();
+
+  /* ── Location ── */
   const [allLocations, setAllLocations] = useState([]);
   const [locationQuery, setLocationQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -22,11 +27,18 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(null);
   const [firstLoad, setFirstLoad] = useState(true);
+  const [selectedListing, setSelectedListing] = useState(null);
 
-  const currentPage = historyIndex >= 0 ? history[historyIndex] : null;
+  const currentPage =
+    historyIndex >= 0 ? history[historyIndex] : null;
   const canGoBack = historyIndex > 0;
 
-  /* ── Load locations on mount ── */
+  /* ── Filter out disliked from current page ── */
+  const visibleListings = currentPage
+    ? currentPage.filter((l) => !isDisliked(l.listingId))
+    : [];
+
+  /* ── Load locations ── */
   useEffect(() => {
     fetch("/api/spark-locations", { cache: "no-store" })
       .then((r) => r.json())
@@ -36,7 +48,7 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  /* ── Auto-load listings on mount ── */
+  /* ── Auto-load on mount ── */
   useEffect(() => {
     if (firstLoad) {
       setFirstLoad(false);
@@ -46,16 +58,15 @@ export default function Home() {
 
   /* ── Close suggestions on outside click ── */
   useEffect(() => {
-    function handleClick(e) {
-      if (suggestRef.current && !suggestRef.current.contains(e.target)) {
+    function h(e) {
+      if (suggestRef.current && !suggestRef.current.contains(e.target))
         setShowSuggestions(false);
-      }
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  /* ── Location search ── */
+  /* ── Location input ── */
   function handleLocationInput(val) {
     setLocationQuery(val);
     setSelectedLocation(null);
@@ -67,77 +78,85 @@ export default function Home() {
     }
 
     const lower = val.toLowerCase();
-    const matches = allLocations.filter(
-      (loc) =>
-        loc.city.toLowerCase().includes(lower) ||
-        loc.state.toLowerCase().includes(lower) ||
-        loc.zip.includes(val)
+    const matches = allLocations.filter((loc) =>
+      loc.label.toLowerCase().includes(lower)
     );
-    setSuggestions(matches.slice(0, 8));
+    setSuggestions(matches.slice(0, 10));
     setShowSuggestions(matches.length > 0);
   }
 
   function selectLocation(loc) {
     setSelectedLocation(loc);
-    setLocationQuery(`${loc.city}, ${loc.state} ${loc.zip}`);
+    setLocationQuery(loc.label);
     setShowSuggestions(false);
-  }
-
-  /* ── Build filter params ── */
-  function getFilterParams() {
-    const params = {};
-    if (selectedLocation) {
-      if (selectedLocation.city) params.city = selectedLocation.city;
-      if (selectedLocation.state) params.state = selectedLocation.state;
-      if (selectedLocation.zip) params.zip = selectedLocation.zip;
-    }
-    if (beds) params.beds = beds;
-    if (baths) params.baths = baths;
-    if (poolOnly) params.pool = "true";
-    return params;
-  }
-
-  /* ── Fetch listings ── */
-  const fetchListings = useCallback(async (isInitial, filterOverride) => {
-    setLoading(true);
-    try {
-      const params = filterOverride !== undefined ? filterOverride : {};
-      const qs = new URLSearchParams(params).toString();
-      const url = "/api/spark-listings" + (qs ? "?" + qs : "");
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
-
-      if (data.success && data.listings && data.listings.length > 0) {
-        setTotal(data.total);
-        setHistory((prev) => {
-          const newHistory = isInitial
-            ? [data.listings]
-            : [...prev, data.listings];
-          setHistoryIndex(newHistory.length - 1);
-          return newHistory;
-        });
-      } else if (data.success && data.total === 0) {
-        setTotal(0);
-        setHistory(isInitial ? [[]] : (prev) => [...prev, []]);
-        setHistoryIndex(isInitial ? 0 : (prev) => prev);
-      }
-    } catch (err) {
-      console.error("Listing fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  /* ── Search handler ── */
-  function handleSearch(e) {
-    if (e) e.preventDefault();
-    const params = getFilterParams();
+    /* Auto-search on selection */
+    const params = buildParams(loc);
     setHistory([]);
     setHistoryIndex(-1);
     fetchListings(true, params);
   }
 
-  /* ── Navigation ── */
+  function buildParams(locOverride) {
+    const loc = locOverride || selectedLocation;
+    const params = {};
+    if (loc) {
+      if (loc.city) params.city = loc.city;
+      if (loc.state) params.state = loc.state;
+      if (loc.zip) params.zip = loc.zip;
+    }
+    if (beds) params.beds = beds;
+    if (baths) params.baths = baths;
+    if (poolOnly) params.pool = "true";
+    if (disliked.length > 0) params.exclude = disliked.join(",");
+    return params;
+  }
+
+  /* ── Fetch listings ── */
+  const fetchListings = useCallback(
+    async (isInitial, filterOverride) => {
+      setLoading(true);
+      try {
+        const params = filterOverride || {};
+        if (disliked.length > 0 && !params.exclude)
+          params.exclude = disliked.join(",");
+        const qs = new URLSearchParams(params).toString();
+        const url = "/api/spark-listings" + (qs ? "?" + qs : "");
+        const res = await fetch(url, { cache: "no-store" });
+        const data = await res.json();
+
+        if (data.success && data.listings && data.listings.length > 0) {
+          setTotal(data.total);
+          setHistory((prev) => {
+            const nh = isInitial
+              ? [data.listings]
+              : [...prev, data.listings];
+            setHistoryIndex(nh.length - 1);
+            return nh;
+          });
+        } else {
+          setTotal(data.total ?? 0);
+          if (isInitial) {
+            setHistory([[]]);
+            setHistoryIndex(0);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [disliked]
+  );
+
+  function handleSearch(e) {
+    if (e) e.preventDefault();
+    const params = buildParams();
+    setHistory([]);
+    setHistoryIndex(-1);
+    fetchListings(true, params);
+  }
+
   function handleBack() {
     if (canGoBack) setHistoryIndex((i) => i - 1);
   }
@@ -146,12 +165,10 @@ export default function Home() {
     if (historyIndex < history.length - 1) {
       setHistoryIndex((i) => i + 1);
     } else {
-      const params = getFilterParams();
-      await fetchListings(false, params);
+      await fetchListings(false, buildParams());
     }
   }
 
-  /* ── Format price ── */
   function fmtPrice(val) {
     if (val == null) return "Price N/A";
     return "$" + Number(val).toLocaleString();
@@ -159,15 +176,15 @@ export default function Home() {
 
   return (
     <div className="page-wrapper">
-      {/* ═══ Search Widget ═══ */}
+      {/* ── Gamification ── */}
+      <Gamification />
+
+      {/* ── Search Widget ── */}
       <form className="search-bar" onSubmit={handleSearch}>
-        {/* Location */}
         <div className="search-field search-field-location" ref={suggestRef}>
-          <label className="search-label" htmlFor="location-input">
-            Location
-          </label>
+          <label className="search-label" htmlFor="loc">Location</label>
           <input
-            id="location-input"
+            id="loc"
             type="text"
             className="search-input"
             placeholder="City, State, or Zip"
@@ -186,54 +203,46 @@ export default function Home() {
                   className="suggestion-item"
                   onMouseDown={() => selectLocation(loc)}
                 >
-                  {loc.city}, {loc.state} {loc.zip}
+                  <span className="suggestion-icon">
+                    {loc.type === "zip" ? "📍" : "🏙️"}
+                  </span>
+                  {loc.label}
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {/* Bedrooms */}
         <div className="search-field">
-          <label className="search-label" htmlFor="beds-select">
-            Bedrooms
-          </label>
+          <label className="search-label" htmlFor="beds-s">Bedrooms</label>
           <select
-            id="beds-select"
+            id="beds-s"
             className="search-select"
             value={beds}
             onChange={(e) => setBeds(e.target.value)}
           >
             <option value="">Any</option>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-              <option key={n} value={n}>
-                {n}+
-              </option>
+              <option key={n} value={n}>{n}+</option>
             ))}
           </select>
         </div>
 
-        {/* Bathrooms */}
         <div className="search-field">
-          <label className="search-label" htmlFor="baths-select">
-            Bathrooms
-          </label>
+          <label className="search-label" htmlFor="baths-s">Bathrooms</label>
           <select
-            id="baths-select"
+            id="baths-s"
             className="search-select"
             value={baths}
             onChange={(e) => setBaths(e.target.value)}
           >
             <option value="">Any</option>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-              <option key={n} value={n}>
-                {n}+
-              </option>
+              <option key={n} value={n}>{n}+</option>
             ))}
           </select>
         </div>
 
-        {/* Pool */}
         <div className="search-field search-field-pool">
           <label className="search-label pool-label">
             <input
@@ -242,74 +251,69 @@ export default function Home() {
               onChange={(e) => setPoolOnly(e.target.checked)}
               className="pool-checkbox"
             />
-            Pool
+            Pool Only
           </label>
         </div>
 
-        {/* Search button */}
         <button type="submit" className="search-btn" disabled={loading}>
           {loading ? (
-            <>
-              <span className="spinner spinner-sm" /> Searching…
-            </>
+            <><span className="spinner spinner-sm" /> Searching…</>
           ) : (
-            "Search"
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:6,verticalAlign:"middle"}}>
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Search
+            </>
           )}
         </button>
       </form>
 
-      {/* ═══ Results Count ═══ */}
+      {/* ── Results count ── */}
       {total !== null && (
         <div className="results-summary">
           {total === 0
-            ? "No listings found. Try adjusting your filters."
+            ? "No listings match your criteria."
             : `${total.toLocaleString()} listing${total !== 1 ? "s" : ""} found`}
         </div>
       )}
 
-      {/* ═══ Listings ═══ */}
-      {currentPage && currentPage.length > 0 && (
+      {/* ── Listings grid ── */}
+      {visibleListings.length > 0 && (
         <div className="listings-section">
           <div className="listings-nav">
-            <button
-              className="nav-btn"
-              onClick={handleBack}
-              disabled={!canGoBack || loading}
-            >
+            <button className="nav-btn" onClick={handleBack} disabled={!canGoBack || loading}>
               ← Back
             </button>
             <span className="nav-info">
               {loading ? (
-                <>
-                  <span className="spinner spinner-sm" /> Loading…
-                </>
+                <><span className="spinner spinner-sm" /> Loading…</>
               ) : (
                 `Set ${historyIndex + 1} of ${history.length}`
               )}
             </span>
-            <button
-              className="nav-btn"
-              onClick={handleNext}
-              disabled={loading}
-            >
+            <button className="nav-btn" onClick={handleNext} disabled={loading}>
               Next →
             </button>
           </div>
 
           <div className="listings-grid">
-            {currentPage.map((listing, i) => (
+            {visibleListings.map((listing, i) => (
               <div className="listing-card" key={listing.listingId + "-" + i}>
-                <div className="listing-photo-wrap">
-                  {listing.photoUrl ? (
-                    <img
-                      className="listing-photo"
-                      src={listing.photoUrl}
-                      alt={listing.address || "Listing photo"}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="listing-photo-placeholder">No Photo</div>
-                  )}
+                <div
+                  className="listing-photo-wrap listing-photo-clickable"
+                  onClick={() => setSelectedListing(listing)}
+                >
+                  <img
+                    className="listing-photo"
+                    src={listing.photoUrl}
+                    alt={listing.address || "Listing"}
+                    loading="lazy"
+                  />
+                  <div className="listing-photo-overlay">
+                    <span className="listing-photo-overlay-text">View Details</span>
+                  </div>
                   {listing.status && (
                     <span className="listing-badge">{listing.status}</span>
                   )}
@@ -317,71 +321,54 @@ export default function Home() {
                     <span className="listing-badge listing-badge-pool">Pool</span>
                   )}
                 </div>
-
                 <div className="listing-info">
                   <div className="listing-price">{fmtPrice(listing.price)}</div>
                   <div className="listing-meta">
-                    {listing.bedrooms != null && (
-                      <span>{listing.bedrooms} bd</span>
-                    )}
-                    {listing.bathrooms != null && (
-                      <span>{listing.bathrooms} ba</span>
-                    )}
-                    {listing.propertyType && (
-                      <span>{listing.propertyType}</span>
-                    )}
+                    {listing.bedrooms != null && <span>{listing.bedrooms} bd</span>}
+                    {listing.bathrooms != null && <span>{listing.bathrooms} ba</span>}
+                    {listing.propertyType && <span>{listing.propertyType}</span>}
                   </div>
                   {listing.address && (
                     <div className="listing-address">
                       {listing.address}
                       {listing.city ? `, ${listing.city}` : ""}
                       {listing.state ? `, ${listing.state}` : ""}
-                      {listing.postalCode ? ` ${listing.postalCode}` : ""}
                     </div>
                   )}
                   <p className="listing-desc">
-                    {listing.description.length > 200
-                      ? listing.description.substring(0, 200) + "…"
+                    {listing.description.length > 150
+                      ? listing.description.substring(0, 150) + "…"
                       : listing.description}
                   </p>
-                  <div className="listing-id">
-                    MLS# {listing.listingId}
-                    {listing.office ? ` — ${listing.office}` : ""}
-                  </div>
+                  <div className="listing-id">MLS# {listing.listingId}</div>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="listings-nav">
-            <button
-              className="nav-btn"
-              onClick={handleBack}
-              disabled={!canGoBack || loading}
-            >
+            <button className="nav-btn" onClick={handleBack} disabled={!canGoBack || loading}>
               ← Back
             </button>
-            <span className="nav-info">
-              Set {historyIndex + 1} of {history.length}
-            </span>
-            <button
-              className="nav-btn"
-              onClick={handleNext}
-              disabled={loading}
-            >
+            <span className="nav-info">Set {historyIndex + 1} of {history.length}</span>
+            <button className="nav-btn" onClick={handleNext} disabled={loading}>
               Next →
             </button>
           </div>
         </div>
       )}
 
+      {/* ── Overlay ── */}
+      {selectedListing && (
+        <ListingOverlay
+          listing={selectedListing}
+          onClose={() => setSelectedListing(null)}
+        />
+      )}
+
       <p className="footer">
         Powered by{" "}
-        <a
-          href="http://sparkplatform.com/docs/api_services/read_first"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="http://sparkplatform.com/docs/api_services/read_first" target="_blank" rel="noopener noreferrer">
           Spark API
         </a>{" "}
         &amp; deployed on{" "}
