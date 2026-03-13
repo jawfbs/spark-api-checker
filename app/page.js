@@ -1,43 +1,89 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 export default function Home() {
-  const [status, setStatus] = useState(null); // null | "loading" | "success" | "fail"
-  const [detail, setDetail] = useState("");
+  const [connStatus, setConnStatus] = useState(null);
+  const [connDetail, setConnDetail] = useState("");
+
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(null);
+
+  const currentPage = historyIndex >= 0 ? history[historyIndex] : null;
+  const canGoBack = historyIndex > 0;
 
   async function handleRun() {
-    setStatus("loading");
-    setDetail("");
+    setConnStatus("loading");
+    setConnDetail("");
+    setHistory([]);
+    setHistoryIndex(-1);
 
     try {
       const res = await fetch("/api/spark-test", { cache: "no-store" });
       const data = await res.json();
 
       if (data.connected) {
-        setStatus("success");
-        setDetail(
-          `Pulled live data from Spark API.\nTotal listings available: ${data.totalActiveListings}` +
-            (data.sampleRecord
-              ? `\nSample ListingId: ${
-                  data.sampleRecord.ListingId ??
-                  data.sampleRecord.Id ??
-                  "N/A"
-                }`
-              : "")
+        setConnStatus("success");
+        setConnDetail(
+          `Pulling live data — ${data.totalActiveListings} total listings available.`
         );
+        await fetchListings(true);
       } else {
-        setStatus("fail");
-        setDetail(
+        setConnStatus("fail");
+        setConnDetail(
           data.error +
-            (data.detail ? `\n${data.detail}` : "") +
-            (data.httpStatus ? `\nHTTP ${data.httpStatus}` : "")
+            (data.detail ? "\n" + data.detail : "") +
+            (data.httpStatus ? "\nHTTP " + data.httpStatus : "")
         );
       }
     } catch (err) {
-      setStatus("fail");
-      setDetail("Could not reach the API route. " + err.message);
+      setConnStatus("fail");
+      setConnDetail("Could not reach API route. " + err.message);
     }
+  }
+
+  const fetchListings = useCallback(async (isInitial) => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/spark-listings", { cache: "no-store" });
+      const data = await res.json();
+
+      if (data.success && data.listings.length > 0) {
+        setTotal(data.total);
+        setHistory((prev) => {
+          const newHistory = isInitial
+            ? [data.listings]
+            : [...prev, data.listings];
+          setHistoryIndex(newHistory.length - 1);
+          return newHistory;
+        });
+      }
+    } catch (err) {
+      console.error("Listing fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  function handleBack() {
+    if (canGoBack) {
+      setHistoryIndex((i) => i - 1);
+    }
+  }
+
+  async function handleNext() {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex((i) => i + 1);
+    } else {
+      await fetchListings(false);
+    }
+  }
+
+  function fmtPrice(val) {
+    if (val == null) return "Price N/A";
+    return "$" + Number(val).toLocaleString();
   }
 
   return (
@@ -45,39 +91,161 @@ export default function Home() {
       <div className="card">
         <h1>Spark API Checker</h1>
         <p className="subtitle">
-          Press <strong>Run</strong> to test your live connection to the Spark
-          API by FBS (replication endpoint).
+          Press <strong>Run</strong> to test your live connection and load
+          random listings from the Spark API.
         </p>
 
         <button
           className="run-btn"
           onClick={handleRun}
-          disabled={status === "loading"}
+          disabled={connStatus === "loading" || loading}
         >
-          {status === "loading" ? (
+          {connStatus === "loading" ? (
             <>
               <span className="spinner" />
-              Testing…
+              Connecting…
             </>
           ) : (
             "Run"
           )}
         </button>
 
-        {status === "success" && (
+        {connStatus === "success" && (
           <>
             <div className="result success">✅ Success</div>
-            {detail && <p className="detail">{detail}</p>}
+            {connDetail && <p className="detail">{connDetail}</p>}
           </>
         )}
 
-        {status === "fail" && (
+        {connStatus === "fail" && (
           <>
             <div className="result fail">❌ Run Failed</div>
-            {detail && <p className="detail">{detail}</p>}
+            {connDetail && <p className="detail">{connDetail}</p>}
           </>
         )}
       </div>
+
+      {currentPage && (
+        <div className="listings-section">
+          <div className="listings-nav">
+            <button
+              className="nav-btn"
+              onClick={handleBack}
+              disabled={!canGoBack || loading}
+            >
+              ← Back
+            </button>
+
+            <span className="nav-info">
+              {loading ? (
+                <>
+                  <span className="spinner spinner-sm" /> Loading…
+                </>
+              ) : (
+                `Set ${historyIndex + 1} of ${history.length}` +
+                (total
+                  ? ` — ${total.toLocaleString()} total listings`
+                  : "")
+              )}
+            </span>
+
+            <button
+              className="nav-btn"
+              onClick={handleNext}
+              disabled={loading}
+            >
+              Next →
+            </button>
+          </div>
+
+          <div className="listings-grid">
+            {currentPage.map((listing, i) => (
+              <div
+                className="listing-card"
+                key={listing.listingId + "-" + i}
+              >
+                <div className="listing-photo-wrap">
+                  {listing.photoUrl ? (
+                    <img
+                      className="listing-photo"
+                      src={listing.photoUrl}
+                      alt={listing.address || "Listing photo"}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="listing-photo-placeholder">
+                      No Photo
+                    </div>
+                  )}
+                  {listing.status && (
+                    <span className="listing-badge">{listing.status}</span>
+                  )}
+                </div>
+
+                <div className="listing-info">
+                  <div className="listing-price">
+                    {fmtPrice(listing.price)}
+                  </div>
+
+                  <div className="listing-meta">
+                    {listing.bedrooms != null && (
+                      <span>{listing.bedrooms} bd</span>
+                    )}
+                    {listing.bathrooms != null && (
+                      <span>{listing.bathrooms} ba</span>
+                    )}
+                    {listing.propertyType && (
+                      <span>{listing.propertyType}</span>
+                    )}
+                  </div>
+
+                  {listing.address && (
+                    <div className="listing-address">
+                      {listing.address}
+                      {listing.city ? `, ${listing.city}` : ""}
+                      {listing.state ? `, ${listing.state}` : ""}
+                      {listing.postalCode
+                        ? ` ${listing.postalCode}`
+                        : ""}
+                    </div>
+                  )}
+
+                  <p className="listing-desc">
+                    {listing.description.length > 200
+                      ? listing.description.substring(0, 200) + "…"
+                      : listing.description}
+                  </p>
+
+                  <div className="listing-id">
+                    MLS# {listing.listingId}
+                    {listing.office ? ` — ${listing.office}` : ""}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="listings-nav">
+            <button
+              className="nav-btn"
+              onClick={handleBack}
+              disabled={!canGoBack || loading}
+            >
+              ← Back
+            </button>
+            <span className="nav-info">
+              {`Set ${historyIndex + 1} of ${history.length}`}
+            </span>
+            <button
+              className="nav-btn"
+              onClick={handleNext}
+              disabled={loading}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="footer">
         Powered by{" "}
