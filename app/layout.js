@@ -1,15 +1,36 @@
+import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Spark Field Explorer",
   description:
-    "Explore all publicly available fields from the Spark API by FBS in an interactive tree.",
+    "Interactive field discovery tool for the Spark API by FBS. Explore every MLS listing field in a navigable, categorized tree.",
+  openGraph: {
+    title: "Spark Field Explorer",
+    description:
+      "Connect your Spark API key and instantly explore every MLS listing field.",
+    type: "website",
+  },
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" data-theme="dark">
-      <body>{children}</body>
+    <html lang="en">
+      <body>
+        <div className="orb-container">
+          <div className="orb orb-blue" />
+          <div className="orb orb-purple" />
+          <div className="orb orb-green" />
+        </div>
+        <div className="grid-pattern" />
+        <div className="scanlines" />
+
+        {children}
+      </body>
     </html>
   );
 }
