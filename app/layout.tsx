@@ -3,21 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Spark Field Explorer",
-  description:
-    "Interactive field discovery tool for the Spark API by FBS. Explore every MLS listing field in a navigable, categorized tree.",
-  openGraph: {
-    title: "Spark Field Explorer",
-    description:
-      "Connect your Spark API key and instantly explore every MLS listing field.",
-    type: "website",
-  },
+  description: "Interactive field discovery tool for the Spark API by FBS.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
@@ -28,7 +17,6 @@ export default function RootLayout({
         </div>
         <div className="grid-pattern" />
         <div className="scanlines" />
-
         {children}
       </body>
     </html>
