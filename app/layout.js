@@ -1,14 +1,16 @@
-import "./globals.css";
+import './globals.css';
 
 export const metadata = {
-  title: "Spark Field Explorer",
-  description:
-    "Explore all publicly available fields from the Spark API by FBS in an interactive tree.",
+  title: 'Spark API Checker v2.0',
+  description: 'Advanced API testing, monitoring, and debugging tool',
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en">
+      <head>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+      </head>
       <body>{children}</body>
     </html>
   );
