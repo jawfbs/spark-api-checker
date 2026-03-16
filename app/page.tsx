@@ -74,7 +74,7 @@ export default function Home() {
       const res = await fetch("/api/spark-fields");
       const data: FieldsResponse = await res.json();
       if (!data.success) {
-        setError(data.error || "Failed to connect to Spark API.");
+        setError(data.error || "Failed to connect.");
         setFieldsData(null);
       } else {
         setFieldsData(data);
@@ -135,23 +135,16 @@ export default function Home() {
     if (t.includes("url")) return "type-url";
     if (t.includes("datetime") || t.includes("date")) return "type-datetime";
     if (t.includes("bool")) return "type-boolean";
-    if (t.includes("int") || t.includes("decimal") || t.includes("number"))
-      return "type-integer";
+    if (t.includes("int") || t.includes("decimal")) return "type-integer";
     if (t.includes("null")) return "type-null";
     if (t.includes("text")) return "type-text";
     return "type-string";
   };
 
   const totalFields = fieldsData
-    ? Object.values(fieldsData.fieldTree).reduce(
-        (sum, cat) => sum + Object.keys(cat).length,
-        0
-      )
+    ? Object.values(fieldsData.fieldTree).reduce((s, c) => s + Object.keys(c).length, 0)
     : 0;
-
-  const totalCategories = fieldsData
-    ? Object.keys(fieldsData.fieldTree).length
-    : 0;
+  const totalCategories = fieldsData ? Object.keys(fieldsData.fieldTree).length : 0;
 
   return (
     <div className="main-container">
@@ -163,48 +156,21 @@ export default function Home() {
 
       <div className="theme-bar">
         {(["dark", "light", "mellow"] as const).map((t) => (
-          <button
-            key={t}
-            className={`theme-btn ${theme === t ? "active" : ""}`}
-            onClick={() => applyTheme(t)}
-          >
-            {t === "dark" ? "🌙" : t === "light" ? "☀️" : "🍂"}{" "}
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+          <button key={t} className={`theme-btn ${theme === t ? "active" : ""}`} onClick={() => applyTheme(t)}>
+            {t === "dark" ? "🌙" : t === "light" ? "☀️" : "🍂"} {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
       <div className="actions">
-        <button
-          className="btn btn-primary"
-          onClick={runExplorer}
-          disabled={loading !== null}
-        >
-          {loading === "explore" ? (
-            <>
-              <span className="spinner" /> Scanning…
-            </>
-          ) : (
-            <>⬡ Run Explorer</>
-          )}
+        <button className="btn btn-primary" onClick={runExplorer} disabled={loading !== null}>
+          {loading === "explore" ? <><span className="spinner" /> Scanning…</> : <>⬡ Run Explorer</>}
         </button>
-        <button
-          className="btn btn-secondary"
-          onClick={runDebug}
-          disabled={loading !== null}
-        >
-          {loading === "debug" ? (
-            <>
-              <span className="spinner" /> Testing…
-            </>
-          ) : (
-            <>🔧 Run Diagnostics</>
-          )}
+        <button className="btn btn-secondary" onClick={runDebug} disabled={loading !== null}>
+          {loading === "debug" ? <><span className="spinner" /> Testing…</> : <>🔧 Run Diagnostics</>}
         </button>
         {(fieldsData || debugData || error) && (
-          <button className="btn btn-danger" onClick={reset}>
-            ✕ Clear
-          </button>
+          <button className="btn btn-danger" onClick={reset}>✕ Clear</button>
         )}
       </div>
 
@@ -227,9 +193,7 @@ export default function Home() {
       {fieldsData && (
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-value">
-              {fieldsData.totalListings.toLocaleString()}
-            </div>
+            <div className="stat-value">{fieldsData.totalListings.toLocaleString()}</div>
             <div className="stat-label">Total Listings</div>
           </div>
           <div className="stat-card">
@@ -241,9 +205,7 @@ export default function Home() {
             <div className="stat-label">Categories</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value" style={{ fontSize: "1.1rem" }}>
-              {fieldsData.sampleListingId || "—"}
-            </div>
+            <div className="stat-value" style={{ fontSize: "1.1rem" }}>{fieldsData.sampleListingId || "—"}</div>
             <div className="stat-label">Sample MLS#</div>
           </div>
         </div>
@@ -256,87 +218,46 @@ export default function Home() {
             const isOpen = openCategories.has(category);
             const fieldEntries = Object.entries(fields);
             const icon = CATEGORY_ICONS[category] || "📦";
-
             return (
               <div className="category-card" key={category}>
-                <div
-                  className="category-header"
-                  onClick={() => toggleCategory(category)}
-                >
+                <div className="category-header" onClick={() => toggleCategory(category)}>
                   <div className="category-left">
                     <span className="category-icon">{icon}</span>
                     <span className="category-name">{category}</span>
-                    <span className="category-count">
-                      {fieldEntries.length}
-                    </span>
+                    <span className="category-count">{fieldEntries.length}</span>
                   </div>
                   <span className={`chevron ${isOpen ? "open" : ""}`}>▶</span>
                 </div>
-
                 {isOpen && (
                   <div className="category-fields">
                     {fieldEntries.map(([fieldName, info]) => {
                       const childKey = `${category}.${fieldName}`;
-                      const hasChildren =
-                        info.children &&
-                        Object.keys(info.children).length > 0;
+                      const hasChildren = info.children && Object.keys(info.children).length > 0;
                       const childOpen = openChildren.has(childKey);
-
                       return (
                         <div key={fieldName}>
                           <div className="field-row">
                             <span className="field-name">{fieldName}</span>
                             <div className="field-right">
-                              <span className="field-sample">
-                                {info.sample ?? "—"}
-                              </span>
-                              <span
-                                className={`type-badge ${badgeClass(info.type)}`}
-                              >
-                                {info.type}
-                              </span>
+                              <span className="field-sample">{info.sample ?? "—"}</span>
+                              <span className={`type-badge ${badgeClass(info.type)}`}>{info.type}</span>
                             </div>
                           </div>
-
                           {hasChildren && (
                             <>
-                              <div
-                                className="nested-toggle"
-                                onClick={() => toggleChild(childKey)}
-                              >
-                                <span
-                                  className={`chevron ${childOpen ? "open" : ""}`}
-                                >
-                                  ▶
-                                </span>
-                                {childOpen ? "Hide" : "Show"}{" "}
-                                {Object.keys(info.children!).length} child
-                                fields
+                              <div className="nested-toggle" onClick={() => toggleChild(childKey)}>
+                                <span className={`chevron ${childOpen ? "open" : ""}`}>▶</span>
+                                {childOpen ? "Hide" : "Show"} {Object.keys(info.children!).length} child fields
                               </div>
-
-                              {childOpen &&
-                                Object.entries(info.children!).map(
-                                  ([cn, ci]) => (
-                                    <div
-                                      className="field-row child-row"
-                                      key={cn}
-                                    >
-                                      <span className="field-name">
-                                        ↳ {cn}
-                                      </span>
-                                      <div className="field-right">
-                                        <span className="field-sample">
-                                          {ci.sample ?? "—"}
-                                        </span>
-                                        <span
-                                          className={`type-badge ${badgeClass(ci.type)}`}
-                                        >
-                                          {ci.type}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
+                              {childOpen && Object.entries(info.children!).map(([cn, ci]) => (
+                                <div className="field-row child-row" key={cn}>
+                                  <span className="field-name">↳ {cn}</span>
+                                  <div className="field-right">
+                                    <span className="field-sample">{ci.sample ?? "—"}</span>
+                                    <span className={`type-badge ${badgeClass(ci.type)}`}>{ci.type}</span>
+                                  </div>
+                                </div>
+                              ))}
                             </>
                           )}
                         </div>
@@ -352,16 +273,12 @@ export default function Home() {
 
       {debugData && (
         <div className="debug-section">
-          <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
-            🔧 Diagnostic Results
-          </h2>
+          <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>🔧 Diagnostic Results</h2>
           {debugData.tests.map((test, i) => (
             <div className="debug-card" key={i}>
               <div className="debug-header">
                 <span className="debug-test-name">{test.name}</span>
-                <span
-                  className={`debug-status ${test.pass ? "debug-pass" : "debug-fail"}`}
-                >
+                <span className={`debug-status ${test.pass ? "debug-pass" : "debug-fail"}`}>
                   {test.pass ? "PASS" : "FAIL"}
                 </span>
               </div>
@@ -372,15 +289,8 @@ export default function Home() {
       )}
 
       <footer className="footer">
-        Built with Next.js 14 on Vercel Edge Runtime
-        <br />
-        <a
-          href="https://github.com/jawfbs/spark-api-checker"
-          target="_blank"
-          rel="noreferrer"
-        >
-          GitHub
-        </a>
+        Built with Next.js 14 on Vercel Edge Runtime<br />
+        <a href="https://github.com/jawfbs/spark-api-checker" target="_blank" rel="noreferrer">GitHub</a>
       </footer>
     </div>
   );
