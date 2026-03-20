@@ -1,603 +1,760 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
-/* ══════════════════════════════════════════
-   THEME
-   ══════════════════════════════════════════ */
-function useTheme() {
-  const [theme, setTheme] = useState("dark");
-
-  useEffect(() => {
-    const saved = localStorage.getItem("spark-theme");
-    if (saved && ["dark", "mellow", "light"].includes(saved)) {
-      setTheme(saved);
-      document.documentElement.setAttribute("data-theme", saved);
-    }
-  }, []);
-
-  const changeTheme = useCallback((t) => {
-    setTheme(t);
-    document.documentElement.setAttribute("data-theme", t);
-    localStorage.setItem("spark-theme", t);
-  }, []);
-
-  return { theme, changeTheme };
+// ── Utilities ──────────────────────────────────────────────
+function formatPrice(price) {
+  if (price == null) return "N/A";
+  return "$" + Number(price).toLocaleString();
 }
 
-/* ══════════════════════════════════════════
-   ANIMATED COUNTER
-   ══════════════════════════════════════════ */
-function AnimatedNumber({ value, duration = 800 }) {
-  const [display, setDisplay] = useState(0);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (value == null) return;
-    const num = typeof value === "number" ? value : parseInt(value, 10);
-    if (isNaN(num)) { setDisplay(value); return; }
-
-    let start = 0;
-    const startTime = performance.now();
-    function tick(now) {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.floor(eased * num));
-      if (progress < 1) ref.current = requestAnimationFrame(tick);
-    }
-    ref.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(ref.current);
-  }, [value, duration]);
-
-  return <>{typeof display === "number" ? display.toLocaleString() : display}</>;
+function formatNum(n) {
+  if (n == null) return null;
+  return Number(n).toLocaleString();
 }
 
-/* ══════════════════════════════════════════
-   TREE NODE
-   ══════════════════════════════════════════ */
-function TreeNode({ name, data, depth = 0, searchTerm = "" }) {
-  const [expanded, setExpanded] = useState(depth < 1);
+// ── Stats Dashboard ────────────────────────────────────────
+function StatsDashboard({ stats }) {
+  if (!stats) return null;
+  const { totalListings, avgPrice, medianPrice, minPrice, maxPrice, statusCounts, topCities, typeCounts } = stats;
 
-  const hasChildren = data.children && Object.keys(data.children).length > 0;
-  const isCategory = !data.type;
+  return (
+    <div className="stats-dashboard">
+      <h2 className="section-title">MLS Stats Dashboard</h2>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <span className="stat-label">Total Listings</span>
+          <span className="stat-value">{Number(totalListings).toLocaleString()}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Avg Price</span>
+          <span className="stat-value">{formatPrice(avgPrice)}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Median Price</span>
+          <span className="stat-value">{formatPrice(medianPrice)}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Min Price</span>
+          <span className="stat-value">{formatPrice(minPrice)}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Max Price</span>
+          <span className="stat-value">{formatPrice(maxPrice)}</span>
+        </div>
+        {statusCounts && Object.entries(statusCounts).map(([s, c]) => (
+          <div className="stat-card" key={s}>
+            <span className="stat-label">{s}</span>
+            <span className="stat-value">{c}</span>
+          </div>
+        ))}
+      </div>
 
-  /* Auto-expand when searching */
-  useEffect(() => {
-    if (searchTerm.length > 0) setExpanded(true);
-  }, [searchTerm]);
-
-  /* Category node */
-  if (isCategory) {
-    let entries = Object.entries(data);
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      entries = entries.filter(([k]) => k.toLowerCase().includes(lower));
-    }
-    if (searchTerm && entries.length === 0) return null;
-    const fieldCount = entries.length;
-
-    return (
-      <div className="tree-category">
-        <button
-          className={`tree-cat-btn ${expanded ? "tree-cat-open" : ""}`}
-          onClick={() => setExpanded(!expanded)}
-        >
-          <span className="tree-cat-chevron">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points={expanded ? "6 9 12 15 18 9" : "9 6 15 12 9 18"} />
-            </svg>
-          </span>
-          <span className="tree-cat-icon">{getCategoryIcon(name)}</span>
-          <span className="tree-cat-name">{name}</span>
-          <span className="tree-cat-count">{fieldCount}</span>
-        </button>
-        {expanded && (
-          <div className="tree-cat-children">
-            {entries.map(([key, val]) => (
-              <TreeNode key={key} name={key} data={val} depth={depth + 1} searchTerm={searchTerm} />
+      {topCities && topCities.length > 0 && (
+        <>
+          <h3 className="section-subtitle">Top Cities</h3>
+          <div className="top-cities">
+            {topCities.map(({ city, count }) => (
+              <div className="city-bar-row" key={city}>
+                <span className="city-name">{city}</span>
+                <div className="city-bar-track">
+                  <div
+                    className="city-bar-fill"
+                    style={{
+                      width: `${Math.round((count / topCities[0].count) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span className="city-count">{count}</span>
+              </div>
             ))}
           </div>
-        )}
+        </>
+      )}
+
+      {typeCounts && Object.keys(typeCounts).length > 0 && (
+        <>
+          <h3 className="section-subtitle">By Property Type</h3>
+          <div className="type-chips">
+            {Object.entries(typeCounts).map(([t, c]) => (
+              <div className="type-chip" key={t}>
+                <span>{t}</span>
+                <span className="type-chip-count">{c}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Filter Panel ───────────────────────────────────────────
+function FilterPanel({ filters, setFilters, onApply, loading }) {
+  const [local, setLocal] = useState(filters);
+
+  function set(key, val) {
+    setLocal((prev) => ({ ...prev, [key]: val }));
+  }
+
+  function apply() {
+    setFilters(local);
+    onApply(local);
+  }
+
+  function reset() {
+    const blank = {
+      city: "",
+      status: "all",
+      minPrice: "",
+      maxPrice: "",
+      minBeds: "",
+      propertyType: "all",
+      sort: "ListPrice",
+      dir: "desc",
+      onlyWithInfo: false,
+    };
+    setLocal(blank);
+    setFilters(blank);
+    onApply(blank);
+  }
+
+  return (
+    <div className="filter-panel">
+      <h2 className="section-title">Filter &amp; Sort</h2>
+      <div className="filter-grid">
+        <div className="filter-group">
+          <label>City</label>
+          <input
+            className="filter-input"
+            type="text"
+            placeholder="Any city…"
+            value={local.city}
+            onChange={(e) => set("city", e.target.value)}
+          />
+        </div>
+
+        <div className="filter-group">
+          <label>Status</label>
+          <select
+            className="filter-input"
+            value={local.status}
+            onChange={(e) => set("status", e.target.value)}
+          >
+            <option value="all">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Closed">Closed</option>
+            <option value="Active Under Contract">Active Under Contract</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Min Price</label>
+          <input
+            className="filter-input"
+            type="number"
+            placeholder="No min"
+            value={local.minPrice}
+            onChange={(e) => set("minPrice", e.target.value)}
+          />
+        </div>
+
+        <div className="filter-group">
+          <label>Max Price</label>
+          <input
+            className="filter-input"
+            type="number"
+            placeholder="No max"
+            value={local.maxPrice}
+            onChange={(e) => set("maxPrice", e.target.value)}
+          />
+        </div>
+
+        <div className="filter-group">
+          <label>Min Beds</label>
+          <select
+            className="filter-input"
+            value={local.minBeds}
+            onChange={(e) => set("minBeds", e.target.value)}
+          >
+            <option value="">Any</option>
+            <option value="1">1+</option>
+            <option value="2">2+</option>
+            <option value="3">3+</option>
+            <option value="4">4+</option>
+            <option value="5">5+</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Property Type</label>
+          <select
+            className="filter-input"
+            value={local.propertyType}
+            onChange={(e) => set("propertyType", e.target.value)}
+          >
+            <option value="all">All Types</option>
+            <option value="Residential">Residential</option>
+            <option value="Condominium">Condominium</option>
+            <option value="Commercial">Commercial</option>
+            <option value="Land">Land</option>
+            <option value="Multi-Family">Multi-Family</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Sort By</label>
+          <select
+            className="filter-input"
+            value={local.sort}
+            onChange={(e) => set("sort", e.target.value)}
+          >
+            <option value="ListPrice">Price</option>
+            <option value="BedsTotal">Beds</option>
+            <option value="BathsTotal">Baths</option>
+            <option value="BuildingAreaTotal">Sq Ft</option>
+            <option value="ListingContractDate">List Date</option>
+            <option value="DaysOnMarket">Days on Market</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label>Direction</label>
+          <select
+            className="filter-input"
+            value={local.dir}
+            onChange={(e) => set("dir", e.target.value)}
+          >
+            <option value="desc">High → Low</option>
+            <option value="asc">Low → High</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="filter-row-bottom">
+        <label className="toggle-label">
+          <input
+            type="checkbox"
+            checked={local.onlyWithInfo}
+            onChange={(e) => set("onlyWithInfo", e.target.checked)}
+          />
+          <span>Only show listings with complete info</span>
+        </label>
+
+        <div className="filter-actions">
+          <button className="nav-btn" onClick={reset} disabled={loading}>
+            Reset
+          </button>
+          <button className="run-btn small" onClick={apply} disabled={loading}>
+            {loading ? <><span className="spinner" />Applying…</> : "Apply Filters"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Listing Card ───────────────────────────────────────────
+function ListingCard({ l, onClick }) {
+  const thumb = l.photos?.[0] ?? null;
+  return (
+    <div className="listing-card" onClick={onClick} style={{ cursor: "pointer" }}>
+      {thumb ? (
+        <img src={thumb} alt="listing" className="card-photo" />
+      ) : (
+        <div className="card-no-photo">No Photo</div>
+      )}
+
+      <div className="listing-body">
+        <div className="listing-header">
+          {l.status && (
+            <span className={`status-badge ${l.status.toLowerCase().replace(/\s/g, "-")}`}>
+              {l.status}
+            </span>
+          )}
+          <span className="listing-id">#{l.listingId}</span>
+        </div>
+
+        <div className="listing-price">{formatPrice(l.price)}</div>
+
+        <div className="listing-address">
+          {l.address || "Address not available"}
+          {(l.city || l.state || l.zip) && (
+            <span className="listing-city">
+              {[l.city, l.state].filter(Boolean).join(", ")} {l.zip}
+            </span>
+          )}
+        </div>
+
+        <div className="listing-details">
+          {l.beds != null && <span className="detail-chip">🛏 {l.beds}</span>}
+          {l.baths != null && <span className="detail-chip">🛁 {l.baths}</span>}
+          {l.sqft != null && <span className="detail-chip">📐 {formatNum(l.sqft)} sqft</span>}
+          {l.propertyType && <span className="detail-chip">🏠 {l.propertyType}</span>}
+          {l.daysOnMarket != null && <span className="detail-chip">📅 {l.daysOnMarket} DOM</span>}
+        </div>
+
+        {l.remarks && <p className="listing-remarks">{l.remarks.substring(0, 120)}…</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Auto-refresh control ────────────────────────────────────
+function AutoRefreshControl({ interval, setInterval: setInt, onTick }) {
+  const options = [
+    { label: "Off", value: 0 },
+    { label: "30s", value: 30 },
+    { label: "1 min", value: 60 },
+    { label: "5 min", value: 300 },
+  ];
+
+  const timerRef = useRef(null);
+  const [countdown, setCountdown] = useState(interval);
+
+  useEffect(() => {
+    clearInterval(timerRef.current);
+    if (interval === 0) { setCountdown(0); return; }
+    setCountdown(interval);
+    timerRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { onTick(); return interval; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [interval]);
+
+  return (
+    <div className="autorefresh-row">
+      <span className="autorefresh-label">Auto-refresh:</span>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          className={`chip-btn ${interval === o.value ? "active" : ""}`}
+          onClick={() => setInt(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+      {interval > 0 && (
+        <span className="countdown">next in {countdown}s</span>
+      )}
+    </div>
+  );
+}
+
+// ── Export to CSV ────────────────────────────────────────────
+function exportCSV(listings) {
+  const headers = [
+    "ListingId", "Status", "Price", "Address", "City", "State", "Zip",
+    "Beds", "Baths", "SqFt", "PropertyType", "YearBuilt", "DaysOnMarket",
+    "HOAFee", "AnnualTaxes", "Agent", "Office", "ListDate",
+  ];
+  const rows = listings.map((l) => [
+    l.listingId ?? "",
+    l.status ?? "",
+    l.price ?? "",
+    l.address ?? "",
+    l.city ?? "",
+    l.state ?? "",
+    l.zip ?? "",
+    l.beds ?? "",
+    l.baths ?? "",
+    l.sqft ?? "",
+    l.propertyType ?? "",
+    l.yearBuilt ?? "",
+    l.daysOnMarket ?? "",
+    l.hoaFee ?? "",
+    l.taxes ?? "",
+    l.agentName ?? "",
+    l.officeName ?? "",
+    l.listDate ?? "",
+  ]);
+
+  const csv = [headers, ...rows]
+    .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `spark-listings-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Map View ──────────────────────────────────────────────────
+function MapView({ listings }) {
+  const withCoords = listings.filter((l) => l.lat && l.lng);
+  if (withCoords.length === 0) {
+    return (
+      <div className="map-placeholder">
+        No listings in this set have GPS coordinates.
       </div>
     );
   }
 
-  /* Field with children */
-  if (hasChildren) {
-    return (
-      <div className="tree-field tree-field-parent">
-        <button
-          className={`tree-field-btn ${expanded ? "tree-field-open" : ""}`}
-          onClick={() => setExpanded(!expanded)}
-        >
-          <span className="tree-expand-icon">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points={expanded ? "6 9 12 15 18 9" : "9 6 15 12 9 18"} />
-            </svg>
-          </span>
-          <FieldName name={name} />
-          <span className="tree-type-badge tree-type-nested">{data.type}</span>
-          <span className="tree-field-sample">{data.sample}</span>
-        </button>
-        {expanded && (
-          <div className="tree-field-children">
-            {Object.entries(data.children).map(([ck, cv]) => (
-              <TreeNode key={ck} name={ck} data={cv} depth={depth + 1} searchTerm={searchTerm} />
-            ))}
-          </div>
-        )}
+  // Center on first listing with coords
+  const center = withCoords[0];
+  const markers = withCoords
+    .map((l) => `${l.lat},${l.lng}`)
+    .join("|");
+
+  const src = `https://maps.google.com/maps?q=${center.lat},${center.lng}&z=12&output=embed`;
+
+  return (
+    <div className="map-container full">
+      <div className="map-note">
+        Showing {withCoords.length} of {listings.length} listings with location data.
       </div>
-    );
-  }
-
-  /* Leaf */
-  return (
-    <div className="tree-field tree-field-leaf">
-      <span className="tree-leaf-dot" />
-      <FieldName name={name} />
-      <span className={`tree-type-badge tree-type-${getTypeClass(data.type)}`}>{data.type}</span>
-      <span className="tree-field-sample" title={String(data.value)}>{data.sample || "—"}</span>
+      <iframe
+        title="Listings Map"
+        className="map-iframe"
+        src={src}
+        allowFullScreen
+      />
     </div>
   );
 }
 
-/* Clickable field name — copies to clipboard */
-function FieldName({ name }) {
-  const [copied, setCopied] = useState(false);
+// ── Default filters ────────────────────────────────────────────
+const DEFAULT_FILTERS = {
+  city: "",
+  status: "all",
+  minPrice: "",
+  maxPrice: "",
+  minBeds: "",
+  propertyType: "all",
+  sort: "ListPrice",
+  dir: "desc",
+  onlyWithInfo: false,
+};
 
-  function handleCopy(e) {
-    e.stopPropagation();
-    navigator.clipboard.writeText(name).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
-  }
-
-  return (
-    <span
-      className={`tree-field-name ${copied ? "tree-field-copied" : ""}`}
-      onClick={handleCopy}
-      title="Click to copy field name"
-    >
-      {name}
-      {copied && <span className="copied-toast">Copied!</span>}
-    </span>
-  );
-}
-
-function getTypeClass(type) {
-  if (!type) return "null";
-  if (type.includes("array")) return "array";
-  if (type.includes("object")) return "object";
-  if (type === "boolean") return "bool";
-  if (type === "integer" || type === "decimal") return "number";
-  if (type === "datetime") return "date";
-  if (type === "url") return "url";
-  if (type.includes("text")) return "text";
-  if (type === "null") return "null";
-  return "string";
-}
-
-function getCategoryIcon(name) {
-  const icons = {
-    "Listing Identity": "⬡", "Price & Financial": "◈", "Location & Address": "◎",
-    "Property Characteristics": "⬢", "Interior Features": "▣", "Exterior & Lot": "◧",
-    "Room Details": "▤", "School Information": "◉", "Tax & Assessment": "◆",
-    "HOA & Community": "◇", "Agent & Office": "◍", "Dates & Timestamps": "◔",
-    "Media & Photos": "◐", "Marketing & Descriptions": "◑",
-    "Status & Compliance": "◒", "Geographic & Map": "◓",
-    "Utility & Systems": "◕", "Other Fields": "◖",
-  };
-  return icons[name] || "◌";
-}
-
-/* ══════════════════════════════════════════
-   SCAN LOG
-   ══════════════════════════════════════════ */
-function ScanLog({ logs }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-  }, [logs]);
-
-  if (logs.length === 0) return null;
-  return (
-    <div className="scan-log" ref={ref}>
-      {logs.map((log, i) => (
-        <div key={i} className={`scan-log-line scan-log-${log.type}`}>
-          <span className="scan-log-time">{log.time}</span>
-          <span className="scan-log-msg">{log.msg}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════
-   TYPE DISTRIBUTION
-   ══════════════════════════════════════════ */
-function TypeDistribution({ fieldTree }) {
-  if (!fieldTree) return null;
-
-  const counts = {};
-  function walk(node) {
-    for (const k of Object.keys(node)) {
-      const v = node[k];
-      if (v && v.type) {
-        const base = v.type.includes("array") ? "array"
-          : v.type.includes("object") ? "object"
-          : v.type.includes("text") ? "string"
-          : v.type;
-        counts[base] = (counts[base] || 0) + 1;
-        if (v.children) walk(v.children);
-      } else if (typeof v === "object" && v !== null) {
-        walk(v);
-      }
-    }
-  }
-  walk(fieldTree);
-
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const max = sorted.length > 0 ? sorted[0][1] : 1;
-
-  return (
-    <div className="type-dist">
-      <div className="type-dist-title">Field Type Distribution</div>
-      {sorted.map(([type, count]) => (
-        <div key={type} className="type-dist-row">
-          <span className={`type-dist-label tree-type-badge tree-type-${getTypeClass(type)}`}>{type}</span>
-          <div className="type-dist-bar-track">
-            <div
-              className={`type-dist-bar-fill type-fill-${getTypeClass(type)}`}
-              style={{ width: `${(count / max) * 100}%` }}
-            />
-          </div>
-          <span className="type-dist-count">{count}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════
-   MAIN PAGE
-   ══════════════════════════════════════════ */
+// ── Main Page ──────────────────────────────────────────────────
 export default function Home() {
-  const { theme, changeTheme } = useTheme();
+  const router = useRouter();
 
-  const [status, setStatus] = useState(null);
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [scanLogs, setScanLogs] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [scanTime, setScanTime] = useState(null);
-  const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [runStatus, setRunStatus] = useState(null); // null|loading|success|fail
+  const [runDetail, setRunDetail] = useState("");
 
-  function addLog(type, msg) {
-    const now = new Date();
-    const time = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    setScanLogs((prev) => [...prev, { type, msg, time }]);
+  const [listings, setListings] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadingListings, setLoadingListings] = useState(false);
+
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [view, setView] = useState("grid"); // grid | map
+
+  const [refreshInterval, setRefreshInterval] = useState(0);
+
+  // ── Fetch listings ─────────────────────────────────────────
+  const fetchListings = useCallback(async (page = 1, f = filters, isRandom = false) => {
+    setLoadingListings(true);
+    const params = new URLSearchParams();
+    params.set("page", page);
+    if (isRandom) params.set("random", "true");
+    if (f.city && f.city !== "all") params.set("city", f.city);
+    if (f.status && f.status !== "all") params.set("status", f.status);
+    if (f.minPrice) params.set("minPrice", f.minPrice);
+    if (f.maxPrice) params.set("maxPrice", f.maxPrice);
+    if (f.minBeds) params.set("minBeds", f.minBeds);
+    if (f.propertyType && f.propertyType !== "all") params.set("propertyType", f.propertyType);
+    if (f.sort) params.set("sort", f.sort);
+    if (f.dir) params.set("dir", f.dir);
+    if (f.onlyWithInfo) params.set("onlyWithInfo", "true");
+
+    const res = await fetch(`/api/spark-listings?${params}`, { cache: "no-store" });
+    const data = await res.json();
+    setLoadingListings(false);
+    if (data.error) throw new Error(data.error);
+    return data;
+  }, [filters]);
+
+  // ── Fetch stats ─────────────────────────────────────────────
+  async function loadStats() {
+    setStatsLoading(true);
+    const res = await fetch("/api/spark-stats", { cache: "no-store" });
+    const data = await res.json();
+    setStats(data);
+    setStatsLoading(false);
   }
 
-  const handleRun = useCallback(async () => {
-    setStatus("loading");
-    setData(null);
-    setError("");
-    setScanLogs([]);
-    setScanTime(null);
-
-    const t0 = performance.now();
-    addLog("info", "Initializing Spark API connection…");
+  // ── Run ─────────────────────────────────────────────────────
+  async function handleRun() {
+    setRunStatus("loading");
+    setRunDetail("");
+    setListings([]);
+    setHistory([]);
+    setStats(null);
+    setCurrentPage(1);
 
     try {
-      addLog("info", "Sending request to /api/spark-fields");
-      addLog("info", "Expanding: Photos, Videos, VirtualTours, OpenHouses, Rooms, Units, Documents");
+      const testRes = await fetch("/api/spark-test", { cache: "no-store" });
+      const testData = await testRes.json();
 
-      const res = await fetch("/api/spark-fields", { cache: "no-store" });
-      addLog("info", `Response received — HTTP ${res.status}`);
-
-      const json = await res.json();
-      const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-      setScanTime(elapsed);
-
-      if (json.success && json.fieldTree) {
-        addLog("success", `Connection verified — ${json.totalListings.toLocaleString()} listings accessible`);
-        addLog("success", `Sample listing: MLS# ${json.sampleListingId}`);
-        addLog("success", `${json.rawFieldCount} fields discovered across ${Object.keys(json.fieldTree).length} categories`);
-        addLog("success", `Scan completed in ${elapsed}s`);
-        setStatus("success");
-        setData(json);
-      } else {
-        addLog("error", json.error || "No data returned");
-        addLog("error", `Scan failed after ${elapsed}s`);
-        setStatus("fail");
-        setError(json.error || "No data returned from API.");
+      if (!testData.connected) {
+        setRunStatus("fail");
+        setRunDetail(
+          testData.error +
+          (testData.detail ? `\n${testData.detail}` : "") +
+          (testData.httpStatus ? `\nHTTP ${testData.httpStatus}` : "")
+        );
+        return;
       }
+
+      setRunDetail(`Connected — ${testData.totalListings} total listings in MLS`);
+
+      const listData = await fetchListings(1, filters, true);
+      setListings(listData.listings || []);
+      setTotalRows(listData.totalRows || 0);
+      setCurrentPage(listData.page || 1);
+      setRunStatus("success");
+
+      // Auto-load stats
+      loadStats();
     } catch (err) {
-      const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-      setScanTime(elapsed);
-      addLog("error", `Network error: ${err.message}`);
-      setStatus("fail");
-      setError("Network error: " + err.message);
+      setRunStatus("fail");
+      setRunDetail("Error: " + err.message);
     }
-  }, []);
-
-  /* Keyboard shortcut */
-  useEffect(() => {
-    function handleKey(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        handleRun();
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [handleRun]);
-
-  /* Close theme menu on click outside */
-  useEffect(() => {
-    if (!showThemeMenu) return;
-    function handleClick() { setShowThemeMenu(false); }
-    setTimeout(() => document.addEventListener("click", handleClick), 0);
-    return () => document.removeEventListener("click", handleClick);
-  }, [showThemeMenu]);
-
-  function handleExportJSON() {
-    if (!data?.fieldTree) return;
-    const blob = new Blob([JSON.stringify(data.fieldTree, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `spark-fields-${data.sampleListingId || "export"}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
-  function handleCollapseAll() {
-    /* Force re-render with key trick */
-    setData((prev) => prev ? { ...prev, _key: Date.now() } : prev);
+  // ── Next ────────────────────────────────────────────────────
+  async function handleNext() {
+    try {
+      setHistory((h) => [...h, { listings, page: currentPage }]);
+      const data = await fetchListings(currentPage, filters, true);
+      setListings(data.listings || []);
+      setCurrentPage(data.page || 1);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
-  const categoryCount = data?.fieldTree ? Object.keys(data.fieldTree).length : 0;
+  // ── Back ────────────────────────────────────────────────────
+  function handleBack() {
+    if (!history.length) return;
+    const prev = [...history];
+    const last = prev.pop();
+    setHistory(prev);
+    setListings(last.listings);
+    setCurrentPage(last.page);
+  }
 
-  const themeIcons = { dark: "🌙", mellow: "🌤", light: "☀️" };
-  const themeLabels = { dark: "Dark", mellow: "Mellow", light: "Light" };
+  // ── Apply filters ───────────────────────────────────────────
+  async function applyFilters(f) {
+    setHistory([]);
+    setCurrentPage(1);
+    try {
+      const data = await fetchListings(1, f, true);
+      setListings(data.listings || []);
+      setTotalRows(data.totalRows || 0);
+      setCurrentPage(data.page || 1);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // ── Auto-refresh tick ────────────────────────────────────────
+  async function handleRefreshTick() {
+    if (runStatus !== "success") return;
+    try {
+      const data = await fetchListings(1, filters, true);
+      setListings(data.listings || []);
+      setCurrentPage(data.page || 1);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  const hasListings = runStatus === "success" && listings.length > 0;
 
   return (
-    <div className="app-shell">
-      {/* ── Ambient ── */}
-      <div className="ambient-orb ambient-orb-1" />
-      <div className="ambient-orb ambient-orb-2" />
-      <div className="ambient-orb ambient-orb-3" />
+    <div className="page-wrapper">
+      {/* ── Header Card ── */}
+      <div className="card">
+        <h1>Spark API Checker</h1>
+        <p className="subtitle">
+          Press <strong>Run</strong> to connect and browse live MLS data from
+          the Spark API by FBS.
+        </p>
 
-      {/* ── Top Bar ── */}
-      <header className="top-bar">
-        <div className="top-bar-left">
-          <span className="brand-mark">⬡</span>
-          <span className="brand-text">SPARK</span>
-          <span className="brand-divider" />
-          <span className="brand-sub">FIELD EXPLORER</span>
-        </div>
+        <button
+          className="run-btn"
+          onClick={handleRun}
+          disabled={runStatus === "loading"}
+        >
+          {runStatus === "loading" ? (
+            <><span className="spinner" />Testing…</>
+          ) : "Run"}
+        </button>
 
-        <div className="top-bar-right">
-          {data && (
-            <div className="conn-indicator">
-              <span className="conn-dot" />
-              <span className="conn-text">LIVE</span>
-            </div>
-          )}
-
-          {/* Theme switcher */}
-          <div className="theme-switcher-wrap">
-            <button
-              className="theme-toggle-btn"
-              onClick={(e) => { e.stopPropagation(); setShowThemeMenu(!showThemeMenu); }}
-              title="Switch theme"
-              aria-label="Switch theme"
-            >
-              <span className="theme-toggle-icon">{themeIcons[theme]}</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-
-            {showThemeMenu && (
-              <div className="theme-dropdown" onClick={(e) => e.stopPropagation()}>
-                {["light", "mellow", "dark"].map((t) => (
-                  <button
-                    key={t}
-                    className={`theme-option ${theme === t ? "theme-option-active" : ""}`}
-                    onClick={() => { changeTheme(t); setShowThemeMenu(false); }}
-                  >
-                    <span className="theme-option-icon">{themeIcons[t]}</span>
-                    <span className="theme-option-label">{themeLabels[t]}</span>
-                    {theme === t && <span className="theme-option-check">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* ── Main Layout: Two Panels ── */}
-      <div className="main-layout">
-        {/* ── LEFT PANEL ── */}
-        <aside className="left-panel">
-          <div className="left-panel-inner">
-            <h1 className="hero-title">
-              Spark API
-              <span className="hero-title-accent">Field Explorer</span>
-            </h1>
-            <p className="hero-desc">
-              Connect to the Spark API and discover every publicly available MLS
-              listing field in an interactive categorized tree.
-            </p>
-
-            <button
-              className={`run-button ${status === "loading" ? "run-button-loading" : ""}`}
-              onClick={handleRun}
-              disabled={status === "loading"}
-            >
-              {status === "loading" ? (
-                <span className="run-inner">
-                  <span className="run-spinner" />
-                  <span>Scanning…</span>
-                </span>
-              ) : (
-                <span className="run-inner">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                  <span>Run Explorer</span>
-                </span>
-              )}
-            </button>
-            <span className="run-hint">or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
-
-            {/* Scan log */}
-            <ScanLog logs={scanLogs} />
-
-            {/* Error */}
-            {status === "fail" && (
-              <div className="error-card">
-                <span className="error-icon">✕</span>
-                <div>
-                  <div className="error-title">Connection Failed</div>
-                  <div className="error-detail">{error}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Stats */}
-            {data && (
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <span className="stat-value"><AnimatedNumber value={data.totalListings} /></span>
-                  <span className="stat-label">Listings</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-value"><AnimatedNumber value={data.rawFieldCount} /></span>
-                  <span className="stat-label">Fields</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-value"><AnimatedNumber value={categoryCount} /></span>
-                  <span className="stat-label">Categories</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-value stat-value-sm">{scanTime}s</span>
-                  <span className="stat-label">Scan Time</span>
-                </div>
-              </div>
-            )}
-
-            {/* Type distribution */}
-            {data && <TypeDistribution fieldTree={data.fieldTree} />}
-
-            {/* Footer */}
-            <div className="left-footer">
-              Powered by{" "}
-              <a href="http://sparkplatform.com/docs/api_services/read_first" target="_blank" rel="noopener noreferrer">Spark API</a>
-              {" "}&amp;{" "}
-              <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">Vercel</a>
-            </div>
-          </div>
-        </aside>
-
-        {/* ── RIGHT PANEL ── */}
-        <main className="right-panel">
-          {/* Empty state */}
-          {!data && status !== "loading" && (
-            <div className="empty-state">
-              <div className="empty-grid">
-                {Array.from({ length: 48 }).map((_, i) => (
-                  <div key={i} className="empty-cell" />
-                ))}
-              </div>
-              <div className="empty-text">
-                <span className="empty-icon">⬡</span>
-                <span>Click <strong>Run Explorer</strong> to scan API fields</span>
-              </div>
-            </div>
-          )}
-
-          {/* Loading state */}
-          {status === "loading" && !data && (
-            <div className="empty-state">
-              <div className="loading-pulse">
-                <div className="pulse-ring" />
-                <div className="pulse-ring pulse-ring-2" />
-                <div className="pulse-ring pulse-ring-3" />
-                <span className="pulse-icon">⬡</span>
-              </div>
-              <div className="empty-text">
-                <span>Scanning Spark API…</span>
-              </div>
-            </div>
-          )}
-
-          {/* Results */}
-          {data && (
-            <div className="results-panel" key={data._key || "results"}>
-              {/* Toolbar */}
-              <div className="results-toolbar">
-                <div className="search-box">
-                  <svg className="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    type="text"
-                    className="search-input"
-                    placeholder="Filter fields…"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  {searchTerm && (
-                    <button className="search-clear" onClick={() => setSearchTerm("")}>✕</button>
-                  )}
-                </div>
-
-                <div className="toolbar-actions">
-                  <button className="toolbar-btn" onClick={handleRun} title="Rescan">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="23 4 23 10 17 10" />
-                      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                    </svg>
-                    Rescan
-                  </button>
-                  <button className="toolbar-btn" onClick={handleExportJSON} title="Export as JSON">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    Export JSON
-                  </button>
-                </div>
-              </div>
-
-              {/* Sample listing ID */}
-              <div className="results-meta">
-                <span>Sample: MLS# <strong>{data.sampleListingId}</strong></span>
-                <span>{data.rawFieldCount} fields · {categoryCount} categories</span>
-              </div>
-
-              {/* Tree */}
-              <div className="tree-container">
-                {Object.entries(data.fieldTree).map(([catName, catData]) => (
-                  <TreeNode key={catName} name={catName} data={catData} depth={0} searchTerm={searchTerm} />
-                ))}
-              </div>
-
-              <div className="results-footer-bar">
-                Scanned at {new Date(data.timestamp).toLocaleString()} · {scanTime}s
-              </div>
-            </div>
-          )}
-        </main>
+        {runStatus === "success" && (
+          <>
+            <div className="result success">✅ Success</div>
+            {runDetail && <p className="detail">{runDetail}</p>}
+          </>
+        )}
+        {runStatus === "fail" && (
+          <>
+            <div className="result fail">❌ Run Failed</div>
+            {runDetail && <p className="detail">{runDetail}</p>}
+          </>
+        )}
       </div>
+
+      {/* ── Everything below only shows after success ── */}
+      {hasListings && (
+        <div className="listings-section">
+
+          {/* ── Toolbar ── */}
+          <div className="toolbar">
+            <div className="toolbar-left">
+              <button
+                className={`chip-btn ${showFilters ? "active" : ""}`}
+                onClick={() => setShowFilters((v) => !v)}
+              >
+                🔍 Filters
+              </button>
+              <button
+                className={`chip-btn ${showStats ? "active" : ""}`}
+                onClick={() => {
+                  setShowStats((v) => !v);
+                  if (!stats) loadStats();
+                }}
+              >
+                📊 Stats
+              </button>
+              <button
+                className={`chip-btn ${view === "map" ? "active" : ""}`}
+                onClick={() => setView((v) => v === "map" ? "grid" : "map")}
+              >
+                🗺 Map
+              </button>
+              <button
+                className="chip-btn"
+                onClick={() => exportCSV(listings)}
+              >
+                📥 Export CSV
+              </button>
+            </div>
+
+            <div className="toolbar-right">
+              <span className="nav-info">
+                {totalRows.toLocaleString()} listings
+              </span>
+            </div>
+          </div>
+
+          {/* ── Auto-refresh ── */}
+          <AutoRefreshControl
+            interval={refreshInterval}
+            setInterval={setRefreshInterval}
+            onTick={handleRefreshTick}
+          />
+
+          {/* ── Filter Panel ── */}
+          {showFilters && (
+            <FilterPanel
+              filters={filters}
+              setFilters={setFilters}
+              onApply={applyFilters}
+              loading={loadingListings}
+            />
+          )}
+
+          {/* ── Stats Dashboard ── */}
+          {showStats && (
+            statsLoading
+              ? <div className="stats-loading"><span className="spinner" /> Loading stats…</div>
+              : <StatsDashboard stats={stats} />
+          )}
+
+          {/* ── Nav top ── */}
+          <div className="nav-row">
+            <button
+              className="nav-btn"
+              onClick={handleBack}
+              disabled={history.length === 0 || loadingListings}
+            >
+              ← Back
+            </button>
+            <span className="nav-info">
+              {history.length > 0 ? `Page ${history.length + 1}` : "Page 1"} —{" "}
+              {listings.length} listings
+            </span>
+            <button
+              className="nav-btn"
+              onClick={handleNext}
+              disabled={loadingListings}
+            >
+              {loadingListings
+                ? <><span className="spinner dark" />Loading…</>
+                : "Next →"}
+            </button>
+          </div>
+
+          {/* ── Map View ── */}
+          {view === "map" && <MapView listings={listings} />}
+
+          {/* ── Grid View ── */}
+          {view === "grid" && (
+            <div className="listings-grid">
+              {listings.map((l, i) => (
+                <ListingCard
+                  key={`${l.listingId}-${i}`}
+                  l={l}
+                  onClick={() => router.push(`/listing/${l.listingKey}`)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ── Nav bottom ── */}
+          <div className="nav-row">
+            <button
+              className="nav-btn"
+              onClick={handleBack}
+              disabled={history.length === 0 || loadingListings}
+            >
+              ← Back
+            </button>
+            <span className="nav-info">
+              {history.length > 0 ? `Page ${history.length + 1}` : "Page 1"}
+            </span>
+            <button
+              className="nav-btn"
+              onClick={handleNext}
+              disabled={loadingListings}
+            >
+              {loadingListings
+                ? <><span className="spinner dark" />Loading…</>
+                : "Next →"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <p className="footer">
+        Powered by{" "}
+        <a href="http://sparkplatform.com/docs/api_services/read_first" target="_blank" rel="noopener noreferrer">
+          Spark API
+        </a>{" "}
+        &amp; deployed on{" "}
+        <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">
+          Vercel
+        </a>
+      </p>
     </div>
   );
 }
