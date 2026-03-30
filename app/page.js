@@ -369,3 +369,287 @@ export default function Home() {
   }, [showThemeMenu]);
 
   function handleExportJSON() {
+    if (!data?.fieldTree) return;
+    const blob = new Blob([JSON.stringify(data.fieldTree, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `spark-fields-${data.sampleListingId || "export"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const categoryCount = data?.fieldTree ? Object.keys(data.fieldTree).length : 0;
+
+  const themeIcons = { dark: "🌙", mellow: "🌤", light: "☀️" };
+  const themeLabels = { dark: "Dark", mellow: "Mellow", light: "Light" };
+
+  return (
+    <div className={theme}>
+      {/* ── Ambient ── */}
+      <div className="ambient-orb ambient-orb-1" />
+      <div className="ambient-orb ambient-orb-2" />
+      <div className="ambient-orb ambient-orb-3" />
+
+      {/* ── Top Bar ── */}
+      <header className="top-bar">
+        <div className="top-bar-left">
+          <span className="brand-mark">⬡</span>
+          <span className="brand-text">SPARK</span>
+          <span className="brand-divider" />
+          <span className="brand-sub">FIELD EXPLORER</span>
+        </div>
+
+        <div className="top-bar-right">
+          {data && (
+            <div className="conn-indicator">
+              <span className="conn-dot" />
+              <span className="conn-text">LIVE</span>
+            </div>
+          )}
+
+          {/* Theme switcher */}
+          <div className="theme-switcher-wrap">
+            <button
+              className="theme-toggle-btn"
+              onClick={(e) => { e.stopPropagation(); setShowThemeMenu(!showThemeMenu); }}
+              title="Switch theme"
+              aria-label="Switch theme"
+            >
+              <span className="theme-toggle-icon">{themeIcons[theme]}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {showThemeMenu && (
+              <div className="theme-dropdown" onClick={(e) => e.stopPropagation()}>
+                {["light", "mellow", "dark"].map((t) => (
+                  <button
+                    key={t}
+                    className={`theme-option ${theme === t ? "theme-option-active" : ""}`}
+                    onClick={() => { changeTheme(t); setShowThemeMenu(false); }}
+                  >
+                    <span className="theme-option-icon">{themeIcons[t]}</span>
+                    <span className="theme-option-label">{themeLabels[t]}</span>
+                    {theme === t && <span className="theme-option-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main Layout: Two Panels ── */}
+      <div className="main-layout">
+        {/* ── LEFT PANEL ── */}
+        <aside className="left-panel">
+          <div className="left-panel-inner">
+            <h1 className="hero-title">
+              Spark API
+              <span className="hero-title-accent">Field Explorer</span>
+            </h1>
+            <p className="hero-desc">
+              Connect to the Spark API and discover every publicly available MLS
+              listing field in an interactive categorized tree.
+            </p>
+
+            <button
+              className={`run-button ${status === "loading" ? "run-button-loading" : ""}`}
+              onClick={handleRun}
+              disabled={status === "loading"}
+            >
+              {status === "loading" ? (
+                <span className="run-inner">
+                  <span className="run-spinner" />
+                  <span>Scanning…</span>
+                </span>
+              ) : (
+                <span className="run-inner">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  <span>Run Explorer</span>
+                </span>
+              )}
+            </button>
+            <span className="run-hint">or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>
+
+            {/* Scan log */}
+            <ScanLog logs={scanLogs} />
+
+            {/* Error */}
+            {status === "fail" && (
+              <div className="error-card">
+                <span className="error-icon">✕</span>
+                <div>
+                  <div className="error-title">Connection Failed</div>
+                  <div className="error-detail">{error}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Stats */}
+            {data && (
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <span className="stat-value"><AnimatedNumber value={data.totalListings} /></span>
+                  <span className="stat-label">Listings</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value"><AnimatedNumber value={data.rawFieldCount} /></span>
+                  <span className="stat-label">Fields</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value"><AnimatedNumber value={categoryCount} /></span>
+                  <span className="stat-label">Categories</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-value stat-value-sm">{scanTime}s</span>
+                  <span className="stat-label">Scan Time</span>
+                </div>
+              </div>
+            )}
+
+            {/* Type distribution */}
+            {data && <TypeDistribution fieldTree={data.fieldTree} />}
+
+            {/* Footer */}
+            <div className="left-footer">
+              Powered by{" "}
+              <a href="http://sparkplatform.com/docs/api_services/read_first" target="_blank" rel="noopener noreferrer">Spark API</a>
+              {" "}&amp;{" "}
+              <a href="https://vercel.com" target="_blank" rel="noopener noreferrer">Vercel</a>
+            </div>
+          </div>
+        </aside>
+
+        {/* ── RIGHT PANEL ── */}
+        <main className="right-panel">
+          {/* Empty state */}
+          {!data && status !== "loading" && (
+            <div className="empty-state">
+              <div className="empty-grid">
+                {Array.from({ length: 48 }).map((_, i) => (
+                  <div key={i} className="empty-cell" />
+                ))}
+              </div>
+              <div className="empty-text">
+                <span className="empty-icon">⬡</span>
+                <span>Click <strong>Run Explorer</strong> to scan API fields</span>
+              </div>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {status === "loading" && !data && (
+            <div className="empty-state">
+              <div className="loading-pulse">
+                <div className="pulse-ring" />
+                <div className="pulse-ring pulse-ring-2" />
+                <div className="pulse-ring pulse-ring-3" />
+                <span className="pulse-icon">⬡</span>
+              </div>
+              <div className="empty-text">
+                <span>Scanning Spark API…</span>
+              </div>
+            </div>
+          )}
+
+          {/* Results */}
+          {data && (
+            <div className="results-panel" key={data._key || "results"}>
+              {/* Toolbar */}
+              <div className="results-toolbar">
+                <div className="search-box">
+                  <svg className="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Filter fields…"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  {searchTerm && (
+                    <button className="search-clear" onClick={() => setSearchTerm("")}>✕</button>
+                  )}
+                </div>
+
+                {/* Data Presence Filter */}
+                <div className="data-filter-group">
+                  <button
+                    className={`data-filter-btn ${dataFilter === "all" ? "data-filter-active" : ""}`}
+                    onClick={() => setDataFilter("all")}
+                    title="Show all fields"
+                  >
+                    All
+                  </button>
+                  <button
+                    className={`data-filter-btn ${dataFilter === "with-data" ? "data-filter-active" : ""}`}
+                    onClick={() => setDataFilter("with-data")}
+                    title="Show fields with data"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    With Data
+                  </button>
+                  <button
+                    className={`data-filter-btn ${dataFilter === "without-data" ? "data-filter-active" : ""}`}
+                    onClick={() => setDataFilter("without-data")}
+                    title="Show fields without data (null, empty, or asterisks)"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Without Data
+                  </button>
+                </div>
+
+                <div className="toolbar-actions">
+                  <button className="toolbar-btn" onClick={handleRun} title="Rescan">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="23 4 23 10 17 10" />
+                      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                    Rescan
+                  </button>
+                  <button className="toolbar-btn" onClick={handleExportJSON} title="Export as JSON">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Export JSON
+                  </button>
+                </div>
+              </div>
+
+              {/* Sample listing ID */}
+              <div className="results-meta">
+                <span>Sample: MLS# <strong>{data.sampleListingId}</strong></span>
+                <span>{data.rawFieldCount} fields · {categoryCount} categories</span>
+              </div>
+
+              {/* Tree */}
+              <div className="tree-container">
+                {Object.entries(data.fieldTree).map(([catName, catData]) => (
+                  <TreeNode key={catName} name={catName} data={catData} depth={0} searchTerm={searchTerm} dataFilter={dataFilter} />
+                ))}
+              </div>
+
+              <div className="results-footer-bar">
+                Scanned at {new Date(data.timestamp).toLocaleString()} · {scanTime}s
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
