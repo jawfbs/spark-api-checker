@@ -6,7 +6,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
    THEME
    ══════════════════════════════════════════ */
 function useTheme() {
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("light");
 
   useEffect(() => {
     const saved = localStorage.getItem("spark-theme");
