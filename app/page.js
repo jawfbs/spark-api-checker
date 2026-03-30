@@ -578,39 +578,38 @@ export default function Home() {
                     <button className="search-clear" onClick={() => setSearchTerm("")}>✕</button>
                   )}
                 </div>
-}
-                {/* Data Presence Filter */}
-                <div className="data-filter-group">
-                  <button
-                    className={`data-filter-btn ${dataFilter === "all" ? "data-filter-active" : ""}`}
-                    onClick={() => setDataFilter("all")}
-                    title="Show all fields"
-                  >
-                    All
-                  </button>
-                  <button
-                    className={`data-filter-btn ${dataFilter === "with-data" ? "data-filter-active" : ""}`}
-                    onClick={() => setDataFilter("with-data")}
-                    title="Show fields with data"
-                  >
-                       }
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    With Data
-                  </button>
-                  <button
-                    className={`data-filter-btn ${dataFilter === "without-data" ? "data-filter-active" : ""}`}
-                    onClick={() => setDataFilter("without-data")}
-                    title="Show fields without data (null, empty, or asterisks)"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                    Without Data
-                  </button>
-                </div>
+
+{/* Data Presence Filter */}
+<div className="data-filter-group">
+  <button
+    className={`data-filter-btn ${dataFilter === "all" ? "data-filter-active" : ""}`}
+    onClick={() => setDataFilter("all")}
+    title="Show all fields"
+  >
+    All
+  </button>
+  <button
+    className={`data-filter-btn ${dataFilter === "with-data" ? "data-filter-active" : ""}`}
+    onClick={() => setDataFilter("with-data")}
+    title="Show fields with data"
+  >
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+    With Data
+  </button>
+  <button
+    className={`data-filter-btn ${dataFilter === "without-data" ? "data-filter-active" : ""}`}
+    onClick={() => setDataFilter("without-data")}
+    title="Show fields without data (null, empty, or asterisks)"
+  >
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+    Without Data
+  </button>
+</div>
 
                 <div className="toolbar-actions">
                   <button className="toolbar-btn" onClick={handleRun} title="Rescan">
