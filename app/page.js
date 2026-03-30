@@ -578,7 +578,7 @@ export default function Home() {
                     <button className="search-clear" onClick={() => setSearchTerm("")}>✕</button>
                   )}
                 </div>
-
+}
                 {/* Data Presence Filter */}
                 <div className="data-filter-group">
                   <button
