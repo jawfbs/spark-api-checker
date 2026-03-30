@@ -579,37 +579,61 @@ export default function Home() {
         )}
       </div>
 
-      {/* Data Presence Filter */}
-      <div className="data-filter-group">
-        <button
-          className={`data-filter-btn ${dataFilter === "all" ? "data-filter-active" : ""}`}
-          onClick={() => setDataFilter("all")}
-          title="Show all fields"
-        >
-          All
-        </button>
-        <button
-          className={`data-filter-btn ${dataFilter === "with-data" ? "data-filter-active" : ""}`}
-          onClick={() => setDataFilter("with-data")}
-          title="Show fields with data"
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          With Data
-        </button>
-        <button
-          className={`data-filter-btn ${dataFilter === "without-data" ? "data-filter-active" : ""}`}
-          onClick={() => setDataFilter("without-data")}
-          title="Show fields without data (null, empty, or asterisks)"
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-          Without Data
-        </button>
-      </div>
+/* ═══════════════════════════════════════
+   DATA PRESENCE FILTER
+   ═══════════════════════════════════════ */
+.data-filter-group {
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.data-filter-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-size: .65rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.data-filter-btn:hover {
+  color: var(--text2);
+  background: var(--surface2);
+}
+
+.data-filter-btn.data-filter-active {
+  color: var(--accent);
+  background: var(--surface3);
+  box-shadow: 0 0 0 1px var(--border-s);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .data-filter-group {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .data-filter-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
 
       <div className="toolbar-actions">
         <button className="toolbar-btn" onClick={handleRun} title="Rescan">
