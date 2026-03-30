@@ -539,6 +539,73 @@ a:hover{text-decoration:underline}
 }
 
 /* ═══════════════════════════════════════
+   DATA PRESENCE FILTER
+   ═══════════════════════════════════════ */
+.data-filter-group {
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.data-filter-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-size: .65rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.data-filter-btn:hover {
+  color: var(--text2);
+  background: var(--surface2);
+}
+
+.data-filter-btn.data-filter-active {
+  color: var(--accent);
+  background: var(--surface3);
+  box-shadow: 0 0 0 1px var(--border-s);
+}
+
+.data-filter-btn[data-filter-active="with-data"] {
+  color: var(--green);
+  background: var(--green-bg);
+}
+
+.data-filter-btn[data-filter-active="without-data"] {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .data-filter-group {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .data-filter-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+
+
+/* ═══════════════════════════════════════
    SCROLLBARS
    ═══════════════════════════════════════ */
 ::-webkit-scrollbar{width:5px;height:5px}
